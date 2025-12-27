@@ -119,20 +119,8 @@ Update this to match your server path (e.g., `http://your-domain.com/LMS/` for p
 3. Go to the "Import" tab
 4. Choose `database/schema.sql` and click "Go"
 
-### Step 5: Create Admin User
 
-1. Open `create_admin.php` in your browser or run via command line
-2. Follow the prompts to create your admin account
-3. Alternatively, insert directly into the database:
-
-```sql
-INSERT INTO users (username, email, password, role, first_name, last_name, status)
-VALUES ('admin', 'admin@learnx.com', '$2y$10$...', 'admin', 'Admin', 'User', 'active');
-```
-
-**Note**: The password must be hashed using PHP's `password_hash()` function.
-
-### Step 6: Access the Application
+### Step 5: Access the Application
 
 1. Start your web server (Apache) and MySQL
 2. Open your browser and navigate to: `http://localhost/LMS/`
