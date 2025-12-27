@@ -100,7 +100,7 @@ include '../includes/header.php';
         
         <div class="content">
             <!-- Welcome Message -->
-            <div class="card" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); color: white; margin-bottom: 24px;">
+            <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%); color: var(--text-dark); margin-bottom: 24px;">
                 <div class="card-body" style="padding: 30px;">
                     <h2 style="margin: 0 0 10px 0;">Welcome back, <?php echo $_SESSION['first_name']; ?>! 👋</h2>
                     <p style="margin: 0; opacity: 0.9;">Today is <?php echo date('l, F j, Y'); ?></p>

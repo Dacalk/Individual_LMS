@@ -40,12 +40,7 @@
             </a>
         </li>
         
-        <li>
-            <a href="<?php echo SITE_URL; ?>parent/fees.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'fees.php' ? 'active' : ''; ?>">
-                <i class="fas fa-money-bill-wave"></i>
-                <span>Fee Payments</span>
-            </a>
-        </li>
+        
         
         <li>
             <a href="<?php echo SITE_URL; ?>parent/notifications.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'notifications.php' ? 'active' : ''; ?>">

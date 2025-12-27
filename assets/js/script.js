@@ -28,6 +28,8 @@ function showModal(modalId) {
     if (modal) {
         modal.classList.add('show');
         modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
         currentModal = modal;
         
         // Prevent body scroll

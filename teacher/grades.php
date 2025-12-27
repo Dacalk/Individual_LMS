@@ -44,25 +44,33 @@ $selected_class = 0;
 $selected_subject = 0;
 $selected_exam = 0;
 
+// Handle GET parameters first (for redirects and initial page load)
+if (isset($_GET['class_id'])) {
+    $selected_class = (int)$_GET['class_id'];
+}
+if (isset($_GET['subject_id'])) {
+    $selected_subject = (int)$_GET['subject_id'];
+}
+if (isset($_GET['exam_id'])) {
+    $selected_exam = (int)$_GET['exam_id'];
+}
+if (isset($_GET['status']) && $_GET['status'] === 'created') {
+    $success = 'Assessment created successfully! You can now record marks.';
+}
+
+// Handle POST parameters (but exam creation is handled separately below)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['class_id'])) {
-        $selected_class = (int)$_POST['class_id'];
-    }
-    if (isset($_POST['subject_id'])) {
-        $selected_subject = (int)$_POST['subject_id'];
-    }
-    if (isset($_POST['exam_id'])) {
-        $selected_exam = (int)$_POST['exam_id'];
-    }
-} else {
-    if (isset($_GET['class_id'])) {
-        $selected_class = (int)$_GET['class_id'];
-    }
-    if (isset($_GET['subject_id'])) {
-        $selected_subject = (int)$_GET['subject_id'];
-    }
-    if (isset($_GET['exam_id'])) {
-        $selected_exam = (int)$_GET['exam_id'];
+    // Only set from POST if it's NOT the create_exam form
+    if (!isset($_POST['action']) || $_POST['action'] !== 'create_exam') {
+        if (isset($_POST['class_id'])) {
+            $selected_class = (int)$_POST['class_id'];
+        }
+        if (isset($_POST['subject_id'])) {
+            $selected_subject = (int)$_POST['subject_id'];
+        }
+        if (isset($_POST['exam_id'])) {
+            $selected_exam = (int)$_POST['exam_id'];
+        }
     }
 }
 
@@ -123,50 +131,75 @@ if ($selected_subject && !in_array($selected_subject, $subject_ids, true)) {
 
 // Handle exam creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_exam') {
-    if (!$selected_class || !$selected_subject) {
+    // Get class_id and subject_id from POST (form hidden fields)
+    $form_class_id = isset($_POST['class_id']) ? (int)$_POST['class_id'] : 0;
+    $form_subject_id = isset($_POST['subject_id']) ? (int)$_POST['subject_id'] : 0;
+    
+    // Use form values if available, otherwise use selected values
+    $exam_class_id = $form_class_id > 0 ? $form_class_id : $selected_class;
+    $exam_subject_id = $form_subject_id > 0 ? $form_subject_id : $selected_subject;
+    
+    if (!$exam_class_id || !$exam_subject_id) {
         $error = 'Please select a class and subject before creating an exam.';
     } else {
-        $exam_name = sanitize($_POST['exam_name'] ?? '');
-        $exam_type = sanitize($_POST['exam_type'] ?? 'unit_test');
-        $exam_date = sanitize($_POST['exam_date'] ?? date('Y-m-d'));
-        $start_time = sanitize($_POST['start_time'] ?? '08:00');
-        $end_time = sanitize($_POST['end_time'] ?? '09:00');
-        $total_marks = isset($_POST['total_marks']) ? (int)$_POST['total_marks'] : 100;
-        $passing_marks = isset($_POST['passing_marks']) ? (int)$_POST['passing_marks'] : 40;
-
-        if ($exam_name === '') {
-            $error = 'Exam name is required.';
-        } elseif ($total_marks <= 0) {
-            $error = 'Total marks must be greater than zero.';
-        } elseif ($passing_marks < 0 || $passing_marks > $total_marks) {
-            $error = 'Passing marks must be between 0 and total marks.';
+        // Verify teacher has access to this class/subject
+        $verify_stmt = $conn->prepare("SELECT COUNT(*) as count FROM class_subjects 
+                                      WHERE class_id = ? AND subject_id = ? AND teacher_id = ?");
+        $verify_stmt->bind_param("iii", $exam_class_id, $exam_subject_id, $teacher_id);
+        $verify_stmt->execute();
+        $verify_result = $verify_stmt->get_result()->fetch_assoc();
+        
+        if ($verify_result['count'] == 0) {
+            $error = 'You do not have permission to create an exam for this class and subject combination.';
         } else {
-            $academic_year = date('Y');
-            $exam_insert_stmt = $conn->prepare("INSERT INTO exams (exam_name, exam_type, class_id, subject_id, exam_date, start_time, end_time, total_marks, passing_marks, academic_year, status)
-                                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')");
-            $start_time_sql = $start_time . ':00';
-            $end_time_sql = $end_time . ':00';
-            $exam_insert_stmt->bind_param(
-                "ssissssiis",
-                $exam_name,
-                $exam_type,
-                $selected_class,
-                $selected_subject,
-                $exam_date,
-                $start_time_sql,
-                $end_time_sql,
-                $total_marks,
-                $passing_marks,
-                $academic_year
-            );
+            $exam_name = sanitize($_POST['exam_name'] ?? '');
+            $exam_type = sanitize($_POST['exam_type'] ?? 'unit_test');
+            $exam_date = sanitize($_POST['exam_date'] ?? date('Y-m-d'));
+            $start_time = sanitize($_POST['start_time'] ?? '08:00');
+            $end_time = sanitize($_POST['end_time'] ?? '09:00');
+            $total_marks = isset($_POST['total_marks']) ? (int)$_POST['total_marks'] : 100;
+            $passing_marks = isset($_POST['passing_marks']) ? (int)$_POST['passing_marks'] : 40;
 
-            if ($exam_insert_stmt->execute()) {
-                $selected_exam = $exam_insert_stmt->insert_id;
-                $success = 'Exam created successfully. You can now record marks.';
-                // Update query parameters for a clean URL (PRG pattern)
-                redirect('grades.php?class_id=' . $selected_class . '&subject_id=' . $selected_subject . '&exam_id=' . $selected_exam . '&status=created');
+            if (empty(trim($exam_name))) {
+                $error = 'Exam name is required.';
+            } elseif ($total_marks <= 0) {
+                $error = 'Total marks must be greater than zero.';
+            } elseif ($passing_marks < 0 || $passing_marks > $total_marks) {
+                $error = 'Passing marks must be between 0 and total marks.';
             } else {
-                $error = 'Failed to create exam. Please try again.';
+                $academic_year = date('Y') . '-' . (date('Y') + 1);
+                $exam_insert_stmt = $conn->prepare("INSERT INTO exams (exam_name, exam_type, class_id, subject_id, exam_date, start_time, end_time, total_marks, passing_marks, academic_year, status)
+                                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')");
+                $start_time_sql = $start_time . ':00';
+                $end_time_sql = $end_time . ':00';
+                $exam_insert_stmt->bind_param(
+                    "ssissssiis",
+                    $exam_name,
+                    $exam_type,
+                    $exam_class_id,
+                    $exam_subject_id,
+                    $exam_date,
+                    $start_time_sql,
+                    $end_time_sql,
+                    $total_marks,
+                    $passing_marks,
+                    $academic_year
+                );
+
+                if ($exam_insert_stmt->execute()) {
+                    $new_exam_id = $exam_insert_stmt->insert_id;
+                    $success = 'Assessment created successfully! You can now record marks.';
+                    // Update selected values and redirect
+                    $selected_class = $exam_class_id;
+                    $selected_subject = $exam_subject_id;
+                    $selected_exam = $new_exam_id;
+                    // Redirect to refresh page with new exam selected
+                    redirect('teacher/grades.php?class_id=' . $exam_class_id . '&subject_id=' . $exam_subject_id . '&exam_id=' . $new_exam_id . '&status=created');
+                } else {
+                    $error = 'Failed to create assessment. Database Error: ' . $exam_insert_stmt->error . ' | MySQL Error: ' . $conn->error;
+                    // Log detailed error for debugging
+                    error_log("Assessment creation failed - Teacher ID: $teacher_id, Class: $exam_class_id, Subject: $exam_subject_id, Error: " . $exam_insert_stmt->error);
+                }
             }
         }
     }
@@ -384,19 +417,26 @@ include '../includes/header.php';
                     <h3><i class="fas fa-plus-circle"></i> Create Assessment</h3>
                 </div>
                 <div class="card-body">
-                    <form method="POST" class="create-exam-grid">
+                    <?php if ($error && isset($_POST['action']) && $_POST['action'] === 'create_exam'): ?>
+                        <div class="alert alert-danger" style="margin-bottom: 20px;">
+                            <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" class="create-exam-grid" id="createAssessmentForm" onsubmit="return validateAssessmentForm(event)">
                         <input type="hidden" name="action" value="create_exam">
-                        <input type="hidden" name="class_id" value="<?php echo $selected_class; ?>">
-                        <input type="hidden" name="subject_id" value="<?php echo $selected_subject; ?>">
+                        <input type="hidden" name="class_id" id="form_class_id" value="<?php echo $selected_class; ?>">
+                        <input type="hidden" name="subject_id" id="form_subject_id" value="<?php echo $selected_subject; ?>">
 
                         <div class="form-group">
-                            <label class="form-label">Exam Name *</label>
-                            <input type="text" name="exam_name" class="form-control" placeholder="e.g., Unit Test 1" required>
+                            <label class="form-label">Assessment Name *</label>
+                            <input type="text" name="exam_name" id="exam_name" class="form-control" placeholder="e.g., Unit Test 1, Midterm Exam" required>
+                            <small class="form-text" style="color: var(--text-light);">Enter a descriptive name for this assessment</small>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Exam Type *</label>
-                            <select name="exam_type" class="form-control" required>
+                            <label class="form-label">Assessment Type *</label>
+                            <select name="exam_type" id="exam_type" class="form-control" required>
                                 <option value="unit_test">Unit Test</option>
                                 <option value="midterm">Midterm</option>
                                 <option value="quarterly">Quarterly</option>
@@ -406,34 +446,44 @@ include '../includes/header.php';
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Exam Date *</label>
-                            <input type="date" name="exam_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
+                            <label class="form-label">Assessment Date *</label>
+                            <input type="date" name="exam_date" id="exam_date" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Start Time</label>
-                            <input type="time" name="start_time" class="form-control" value="08:00">
+                            <input type="time" name="start_time" id="start_time" class="form-control" value="08:00">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">End Time</label>
-                            <input type="time" name="end_time" class="form-control" value="09:00">
+                            <input type="time" name="end_time" id="end_time" class="form-control" value="09:00">
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Total Marks *</label>
-                            <input type="number" name="total_marks" class="form-control" value="100" min="1" required>
+                            <input type="number" name="total_marks" id="total_marks" class="form-control" value="100" min="1" step="0.01" required>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">Passing Marks *</label>
-                            <input type="number" name="passing_marks" class="form-control" value="40" min="0" required>
+                            <input type="number" name="passing_marks" id="passing_marks" class="form-control" value="40" min="0" step="0.01" required>
+                            <small class="form-text" style="color: var(--text-light);">Must be less than or equal to total marks</small>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-outline"><i class="fas fa-save"></i> Create Exam</button>
+                        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 10px;">
+                            <button type="submit" class="btn btn-primary" id="submitAssessmentBtn"><i class="fas fa-save"></i> Create Assessment</button>
+                            <button type="reset" class="btn btn-outline"><i class="fas fa-redo"></i> Reset Form</button>
                         </div>
                     </form>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Please select a class and subject from the dropdowns above to create an assessment.
+                    </div>
                 </div>
             </div>
             <?php endif; ?>
@@ -566,6 +616,114 @@ include '../includes/header.php';
     }
 }
 </style>
+
+<script>
+function validateAssessmentForm(event) {
+    const form = document.getElementById('createAssessmentForm');
+    if (!form) {
+        console.error('Form not found');
+        return true;
+    }
+    
+    // Ensure hidden fields are set
+    const classIdInput = document.getElementById('form_class_id');
+    const subjectIdInput = document.getElementById('form_subject_id');
+    
+    if (!classIdInput || !classIdInput.value || classIdInput.value == '0') {
+        alert('Please select a class first.');
+        event.preventDefault();
+        return false;
+    }
+    
+    if (!subjectIdInput || !subjectIdInput.value || subjectIdInput.value == '0') {
+        alert('Please select a subject first.');
+        event.preventDefault();
+        return false;
+    }
+    
+    const examName = document.getElementById('exam_name').value.trim();
+    const totalMarks = parseFloat(document.getElementById('total_marks').value);
+    const passingMarks = parseFloat(document.getElementById('passing_marks').value);
+    const startTime = document.getElementById('start_time').value;
+    const endTime = document.getElementById('end_time').value;
+    
+    // Validate exam name
+    if (!examName) {
+        alert('Please enter an assessment name.');
+        document.getElementById('exam_name').focus();
+        event.preventDefault();
+        return false;
+    }
+    
+    // Validate marks
+    if (totalMarks <= 0 || isNaN(totalMarks)) {
+        alert('Total marks must be greater than zero.');
+        document.getElementById('total_marks').focus();
+        event.preventDefault();
+        return false;
+    }
+    
+    if (passingMarks < 0 || passingMarks > totalMarks || isNaN(passingMarks)) {
+        alert('Passing marks must be between 0 and total marks.');
+        document.getElementById('passing_marks').focus();
+        event.preventDefault();
+        return false;
+    }
+    
+    // Validate time
+    if (startTime && endTime && startTime >= endTime) {
+        alert('End time must be after start time.');
+        document.getElementById('end_time').focus();
+        event.preventDefault();
+        return false;
+    }
+    
+    // Show loading indicator
+    const submitBtn = document.getElementById('submitAssessmentBtn');
+    if (submitBtn) {
+        const originalHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        
+        // Re-enable after 5 seconds in case of error
+        setTimeout(function() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        }, 5000);
+    }
+    
+    // Log form data for debugging
+    console.log('Submitting assessment form:', {
+        class_id: classIdInput.value,
+        subject_id: subjectIdInput.value,
+        exam_name: examName,
+        total_marks: totalMarks,
+        passing_marks: passingMarks
+    });
+    
+    // Allow form submission
+    return true;
+}
+
+// Auto-update passing marks max value when total marks changes
+document.addEventListener('DOMContentLoaded', function() {
+    const totalMarksInput = document.getElementById('total_marks');
+    const passingMarksInput = document.getElementById('passing_marks');
+    
+    if (totalMarksInput && passingMarksInput) {
+        totalMarksInput.addEventListener('input', function() {
+            const maxMarks = parseFloat(this.value);
+            if (maxMarks > 0 && !isNaN(maxMarks)) {
+                passingMarksInput.setAttribute('max', maxMarks);
+                const currentPassing = parseFloat(passingMarksInput.value);
+                if (currentPassing > maxMarks) {
+                    passingMarksInput.value = maxMarks;
+                }
+            }
+        });
+    }
+});
+</script>
 
 <?php include '../includes/footer.php'; ?>
 

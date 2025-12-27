@@ -102,6 +102,10 @@ $classes = $conn->query("SELECT * FROM classes WHERE status = 'active' ORDER BY 
 
 // Get all time periods
 $periods = $conn->query("SELECT * FROM time_periods WHERE status = 'active' ORDER BY start_time ASC");
+if (!$periods) {
+    $error = 'Time periods table not found. Please run the migration script: <a href="../database/migrate_time_periods.php">Run Migration</a>';
+    $periods = $conn->query("SELECT 1 WHERE 1=0"); // Empty result set to prevent errors
+}
 
 // Get all subjects
 $subjects = $conn->query("SELECT * FROM subjects WHERE status = 'active' ORDER BY subject_name ASC");
@@ -624,4 +628,134 @@ function viewTimetableEntry(timetableId) {
                                 <tr><th>Employee ID:</th><td>${entry.employee_id}</td></tr>
                                 ${entry.department ? `<tr><th>Department:</th><td>${entry.department}</td></tr>` : ''}
                                 ${entry.teacher_email ? `<tr><th>Email:</th><td>${entry.teacher_email}</td></tr>` : ''}
-                                ${entry.teacher_phone ? `<tr><th>Phone:</th><td>${entry.teacher_phone}</td></tr>`
+                                ${entry.teacher_phone ? `<tr><th>Phone:</th><td>${entry.teacher_phone}</td></tr>` : ''}
+                            </table>
+                        </div>
+                    </div>
+                    ${entry.notes ? `<div style="margin-top: 20px; padding: 15px; background: #F3F4F6; border-radius: 8px;"><strong>Notes:</strong><br>${entry.notes}</div>` : ''}
+                `;
+            } else {
+                document.getElementById('timetableDetailsContent').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #EF4444;"></i>
+                        <p style="margin-top: 20px; color: var(--text-light);">${data.message || 'Error loading timetable details'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('timetableDetailsContent').innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #EF4444;"></i>
+                    <p style="margin-top: 20px; color: var(--text-light);">Error: ${error.message}</p>
+                </div>
+            `;
+        });
+}
+</script>
+
+<!-- Bulk Add Modal -->
+<div id="bulkAddModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-calendar-plus"></i> Bulk Add Timetable</h3>
+            <button class="modal-close" onclick="hideModal('bulkAddModal')">&times;</button>
+        </div>
+        <form method="POST">
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <input type="hidden" name="action" value="bulk_add">
+                <input type="hidden" name="bulk_class_id" value="<?php echo $selected_class; ?>">
+                <input type="hidden" name="bulk_academic_year" value="<?php echo $academic_year; ?>">
+                <input type="hidden" name="bulk_term" value="<?php echo $term; ?>">
+                
+                <div class="form-group">
+                    <label class="form-label">Select days and periods to add timetable entries</label>
+                    <p style="color: var(--text-light); font-size: 14px; margin-bottom: 20px;">
+                        Fill in the subject and teacher for each period you want to add. Leave empty to skip.
+                    </p>
+                </div>
+                
+                <?php 
+                $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                $periods->data_seek(0);
+                $period_list = [];
+                while ($p = $periods->fetch_assoc()) {
+                    if (!$p['is_break']) {
+                        $period_list[] = $p;
+                    }
+                }
+                ?>
+                
+                <?php foreach ($days as $day): ?>
+                <div style="margin-bottom: 30px; padding: 20px; background: #F9FAFB; border-radius: 8px;">
+                    <h4 style="color: var(--primary-color); margin-bottom: 15px;">
+                        <i class="fas fa-calendar-day"></i> <?php echo $day; ?>
+                    </h4>
+                    
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: var(--light-gray);">
+                                <th style="padding: 10px; text-align: left; width: 150px;">Period</th>
+                                <th style="padding: 10px; text-align: left;">Subject</th>
+                                <th style="padding: 10px; text-align: left;">Teacher</th>
+                                <th style="padding: 10px; text-align: left;">Room</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($period_list as $period): ?>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                                    <strong><?php echo $period['period_name']; ?></strong><br>
+                                    <small style="color: var(--text-light);">
+                                        <?php echo date('g:i A', strtotime($period['start_time'])); ?> - 
+                                        <?php echo date('g:i A', strtotime($period['end_time'])); ?>
+                                    </small>
+                                </td>
+                                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                                    <select name="bulk_<?php echo $day; ?>[<?php echo $period['period_id']; ?>][subject_id]" class="form-control" style="width: 100%;">
+                                        <option value="">-- Select Subject --</option>
+                                        <?php 
+                                        $subjects->data_seek(0);
+                                        while ($subject = $subjects->fetch_assoc()): 
+                                        ?>
+                                            <option value="<?php echo $subject['subject_id']; ?>">
+                                                <?php echo $subject['subject_name']; ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </td>
+                                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                                    <select name="bulk_<?php echo $day; ?>[<?php echo $period['period_id']; ?>][teacher_id]" class="form-control" style="width: 100%;">
+                                        <option value="">-- Select Teacher --</option>
+                                        <?php 
+                                        $teachers->data_seek(0);
+                                        while ($teacher = $teachers->fetch_assoc()): 
+                                        ?>
+                                            <option value="<?php echo $teacher['teacher_id']; ?>">
+                                                <?php echo $teacher['teacher_name']; ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </td>
+                                <td style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                                    <input type="text" name="bulk_<?php echo $day; ?>[<?php echo $period['period_id']; ?>][room]" 
+                                           class="form-control" placeholder="Room" style="width: 100%;">
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="hideModal('bulkAddModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-calendar-plus"></i> Add All Entries
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php include '../includes/footer.php'; ?>

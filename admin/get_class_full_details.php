@@ -53,12 +53,45 @@ try {
         while ($student = $students_result->fetch_assoc()) {
             $students[] = $student;
         }
+        $students_stmt->close();
+        
+        // Get subject assignments for this class
+        $subjects_query = "SELECT cs.class_subject_id, cs.teacher_id, cs.academic_year,
+                          s.subject_id, s.subject_name, s.subject_code,
+                          CONCAT(u.first_name, ' ', u.last_name) as teacher_name,
+                          t.employee_id
+                          FROM class_subjects cs
+                          JOIN subjects s ON cs.subject_id = s.subject_id
+                          LEFT JOIN teachers t ON cs.teacher_id = t.teacher_id
+                          LEFT JOIN users u ON t.user_id = u.user_id
+                          WHERE cs.class_id = ?
+                          ORDER BY s.subject_name ASC";
+        
+        $subjects_stmt = $conn->prepare($subjects_query);
+        $subjects_stmt->bind_param("i", $class_id);
+        $subjects_stmt->execute();
+        $subjects_result = $subjects_stmt->get_result();
+        
+        $subjects = [];
+        while ($subject = $subjects_result->fetch_assoc()) {
+            $subjects[] = [
+                'class_subject_id' => (int)$subject['class_subject_id'],
+                'subject_id' => (int)$subject['subject_id'],
+                'subject_name' => $subject['subject_name'],
+                'subject_code' => $subject['subject_code'],
+                'academic_year' => $subject['academic_year'],
+                'teacher_id' => $subject['teacher_id'] ? (int)$subject['teacher_id'] : null,
+                'teacher_name' => $subject['teacher_name'] ? $subject['teacher_name'] . ($subject['employee_id'] ? ' (' . $subject['employee_id'] . ')' : '') : 'Not Assigned'
+            ];
+        }
+        $subjects_stmt->close();
         
         echo json_encode([
             'success' => true,
             'teacher_name' => $class['teacher_name'],
             'student_count' => $class['student_count'],
-            'students' => $students
+            'students' => $students,
+            'subjects' => $subjects
         ]);
     } else {
         echo json_encode([

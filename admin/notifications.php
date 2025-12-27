@@ -135,7 +135,6 @@ include '../includes/header.php';
                         <option value="general">General</option>
                         <option value="academic">Academic</option>
                         <option value="exam">Exam</option>
-                        <option value="fee">Fee</option>
                         <option value="event">Event</option>
                         <option value="urgent">Urgent</option>
                     </select>

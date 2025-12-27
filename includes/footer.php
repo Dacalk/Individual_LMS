@@ -3,11 +3,19 @@
         
         // Show/Hide Modal
         function showModal(modalId) {
-            document.getElementById(modalId).classList.add('show');
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('show');
+                modal.style.display = 'flex';
+            }
         }
         
         function hideModal(modalId) {
-            document.getElementById(modalId).classList.remove('show');
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
         }
         
         // Close modal when clicking outside

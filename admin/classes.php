@@ -334,6 +334,7 @@ function viewClass(classId) {
                             const teacherName = fullData.teacher_name || 'Not Assigned';
                             const studentCount = fullData.student_count || 0;
                             const students = fullData.students || [];
+                            const subjects = fullData.subjects || [];
                             
                             let studentsHtml = '';
                             if (students.length > 0) {
@@ -347,6 +348,22 @@ function viewClass(classId) {
                                 studentsHtml += '</ul>';
                             } else {
                                 studentsHtml = '<p style="color: var(--text-light); padding: 20px; text-align: center; background: #f3f4f6; border-radius: 8px;">No students assigned to this class</p>';
+                            }
+                            
+                            let subjectsHtml = '';
+                            if (subjects.length > 0) {
+                                subjectsHtml = '<div class="table-responsive"><table class="table" style="margin-top: 10px;"><thead><tr><th>Subject</th><th>Code</th><th>Teacher</th><th>Academic Year</th></tr></thead><tbody>';
+                                subjects.forEach(subject => {
+                                    subjectsHtml += `<tr>
+                                        <td><strong>${subject.subject_name}</strong></td>
+                                        <td>${subject.subject_code}</td>
+                                        <td>${subject.teacher_name}</td>
+                                        <td>${subject.academic_year}</td>
+                                    </tr>`;
+                                });
+                                subjectsHtml += '</tbody></table></div>';
+                            } else {
+                                subjectsHtml = '<p style="color: var(--text-light); padding: 20px; text-align: center; background: #f3f4f6; border-radius: 8px;">No subjects assigned to this class</p>';
                             }
                             
                             document.getElementById('classDetailsContent').innerHTML = `
@@ -375,6 +392,12 @@ function viewClass(classId) {
                                             <tr><th>Created:</th><td>${classData.created_at || 'N/A'}</td></tr>
                                         </table>
                                     </div>
+                                </div>
+                                <div style="margin-top: 20px;">
+                                    <h4 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 10px; margin-bottom: 15px;">
+                                        <i class="fas fa-book"></i> Subjects & Teachers (${subjects.length})
+                                    </h4>
+                                    ${subjectsHtml}
                                 </div>
                                 <div style="margin-top: 20px;">
                                     <h4 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; margin-bottom: 15px;">

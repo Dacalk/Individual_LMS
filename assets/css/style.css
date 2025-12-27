@@ -396,9 +396,7 @@ textarea.form-control {
 
 .header-left h1 {
     font-size: 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--primary-color);
     font-weight: 700;
 }
 
@@ -808,6 +806,13 @@ textarea.form-control {
     transform: scale(1.01);
 }
 
+.table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
 /* ============================================
    Badge Styles
    ============================================ */
@@ -892,10 +897,14 @@ textarea.form-control {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     animation: fadeIn 0.3s ease;
+    align-items: center;
+    justify-content: center;
 }
 
-.modal.show {
-    display: flex;
+.modal.show,
+.modal[style*="display: flex"],
+.modal[style*="display:flex"] {
+    display: flex !important;
     align-items: center;
     justify-content: center;
 }
@@ -914,6 +923,8 @@ textarea.form-control {
     max-height: 90vh;
     overflow-y: auto;
     animation: slideUp 0.3s ease;
+    margin: auto;
+    position: relative;
 }
 
 .modal-header {
@@ -1168,6 +1179,17 @@ textarea.form-control {
     
     .table-responsive table {
         min-width: 600px;
+    }
+
+    .table-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .table-actions .btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .btn {
@@ -1569,6 +1591,120 @@ textarea.form-control {
     
     .footer-social {
         justify-content: center;
+    }
+}
+
+/* ============================================
+   Quiz/Assessment Styles
+   ============================================ */
+
+.quiz-form {
+    max-width: 100%;
+}
+
+.questions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--light-gray);
+}
+
+.questions-header h4 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 18px;
+}
+
+.question-list {
+    margin-bottom: 30px;
+}
+
+.question-card {
+    background: white;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: var(--transition);
+}
+
+.question-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--box-shadow-lg);
+}
+
+.question-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.question-card-header h5 {
+    margin: 0;
+    color: var(--text-dark);
+    font-size: 16px;
+}
+
+.question-number {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.quiz-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 15px;
+    font-size: 15px;
+}
+
+/* Responsive Quiz Styles */
+@media (max-width: 768px) {
+    .questions-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .options-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .question-card {
+        padding: 15px;
+    }
+    
+    .question-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .form-actions {
+        justify-content: center;
+    }
+
+    .quiz-meta {
+        flex-direction: column;
+        gap: 10px;
     }
 }
 

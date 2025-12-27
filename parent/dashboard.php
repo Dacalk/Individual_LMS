@@ -41,19 +41,7 @@ while ($child = $children_result->fetch_assoc()) {
     $grades_data = $grades_result->fetch_assoc();
     $child['average_grade'] = $grades_data['avg_percentage'] ? round($grades_data['avg_percentage'], 1) : 0;
     
-    // Get pending fees
-    $fees_query = "SELECT SUM(fs.amount - COALESCE(paid.amount_paid, 0)) as pending_amount
-                   FROM fee_structure fs
-                   LEFT JOIN (
-                       SELECT fee_structure_id, SUM(amount_paid) as amount_paid
-                       FROM fee_payments
-                       WHERE student_id = " . $child['student_id'] . " AND status = 'completed'
-                       GROUP BY fee_structure_id
-                   ) paid ON fs.fee_structure_id = paid.fee_structure_id
-                   WHERE fs.class_id = " . ($child['class_id'] ?? 0) . " AND fs.status = 'active'";
-    $fees_result = $conn->query($fees_query);
-    $fees_data = $fees_result->fetch_assoc();
-    $child['pending_fees'] = $fees_data['pending_amount'] ?? 0;
+    // Pending fees removed from dashboard (fees functionality disabled)
     
     $children_data[] = $child;
 }
@@ -69,7 +57,7 @@ include '../includes/header.php';
         
         <div class="content">
             <!-- Welcome Message -->
-            <div class="card" style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); color: white; margin-bottom: 24px;">
+            <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%); color: var(--text-dark); margin-bottom: 24px;">
                 <div class="card-body" style="padding: 30px;">
                     <h2 style="margin: 0 0 10px 0;">Welcome, <?php echo $_SESSION['first_name']; ?>! 👋</h2>
                     <p style="margin: 0; opacity: 0.9;">Monitor your child's academic progress and stay connected with the school</p>
@@ -111,15 +99,7 @@ include '../includes/header.php';
                                 </div>
                             </div>
                             
-                            <div class="dashboard-card <?php echo $child['pending_fees'] > 0 ? 'danger' : 'success'; ?>">
-                                <div class="card-icon <?php echo $child['pending_fees'] > 0 ? 'danger' : 'success'; ?>">
-                                    <i class="fas fa-rupee-sign"></i>
-                                </div>
-                                <div class="card-content">
-                                    <h3>₹<?php echo number_format($child['pending_fees'], 2); ?></h3>
-                                    <p>Pending Fees</p>
-                                </div>
-                            </div>
+                            <!-- Fees display removed -->
                         </div>
                         
                         <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
@@ -132,11 +112,7 @@ include '../includes/header.php';
                             <a href="timetable.php?student_id=<?php echo $child['student_id']; ?>" class="btn btn-info btn-sm">
                                 <i class="fas fa-calendar-alt"></i> View Timetable
                             </a>
-                            <?php if ($child['pending_fees'] > 0): ?>
-                            <a href="fees.php?student_id=<?php echo $child['student_id']; ?>" class="btn btn-warning btn-sm">
-                                <i class="fas fa-money-bill-wave"></i> Pay Fees
-                            </a>
-                            <?php endif; ?>
+                            <!-- Pay Fees button removed -->
                         </div>
                     </div>
                 </div>
@@ -166,9 +142,7 @@ include '../includes/header.php';
                         <a href="notifications.php" class="btn btn-info" style="padding: 15px;">
                             <i class="fas fa-bell"></i> View Notifications
                         </a>
-                        <a href="fees.php" class="btn btn-warning" style="padding: 15px;">
-                            <i class="fas fa-money-bill-wave"></i> Fee Payments
-                        </a>
+                        <!-- Fee Payments quick action removed -->
                     </div>
                 </div>
             </div>

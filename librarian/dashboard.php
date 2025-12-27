@@ -66,7 +66,7 @@ include '../includes/header.php';
         
         <div class="content">
             <!-- Welcome Message -->
-            <div class="card" style="background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%); color: white; margin-bottom: 24px;">
+            <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%); color: var(--text-dark); margin-bottom: 24px;">
                 <div class="card-body" style="padding: 30px;">
                     <h2 style="margin: 0 0 10px 0;">Welcome to Library Management, <?php echo $_SESSION['first_name']; ?>! 📚</h2>
                     <p style="margin: 0; opacity: 0.9;">Manage books, track transactions, and serve students effectively</p>

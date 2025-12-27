@@ -24,6 +24,10 @@ $term = '1'; // You can make this dynamic
 
 // Get all time periods
 $periods = $conn->query("SELECT * FROM time_periods WHERE status = 'active' ORDER BY start_time ASC");
+if (!$periods) {
+    $error = 'Time periods table not found. Please contact administrator to run the migration script.';
+    $periods = $conn->query("SELECT 1 WHERE 1=0"); // Empty result set to prevent errors
+}
 
 // Get timetable for teacher
 $timetable_data = [];
@@ -52,6 +56,9 @@ include '../includes/header.php';
         <?php include '../includes/topbar.php'; ?>
         
         <div class="content">
+            <?php if (isset($error)): ?>
+                <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> <?php echo $error; ?></div>
+            <?php endif; ?>
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-calendar-week"></i> My Teaching Schedule</h3>

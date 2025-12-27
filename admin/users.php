@@ -52,14 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $department = sanitize($_POST['department']);
                     
                     $teacher_stmt = $conn->prepare("INSERT INTO teachers (user_id, employee_id, joining_date, qualification, specialization, experience_years, department) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $teacher_stmt->bind_param("isssis", $user_id, $employee_id, $joining_date, $qualification, $specialization, $experience_years, $department);
+                    $teacher_stmt->bind_param("isssiss", $user_id, $employee_id, $joining_date, $qualification, $specialization, $experience_years, $department);
                     $teacher_stmt->execute();
                 } elseif ($role === 'student') {
                     $admission_number = 'STU' . str_pad($user_id, 5, '0', STR_PAD_LEFT);
                     $special_id = $admission_number;
                     $admission_date = sanitize($_POST['admission_date']);
                     $class_id = (int)$_POST['class_id'];
-                    $section = sanitize($_POST['section']);
+                    $section = !empty($_POST['section']) ? sanitize($_POST['section']) : null;
                     $roll_number = sanitize($_POST['roll_number']);
                     $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
                     $blood_group = sanitize($_POST['blood_group']);
@@ -95,10 +95,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = sanitize($_POST['email']);
             $first_name = sanitize($_POST['first_name']);
             $last_name = sanitize($_POST['last_name']);
-            $phone = sanitize($_POST['phone']);
-            $address = sanitize($_POST['address']);
-            $date_of_birth = sanitize($_POST['date_of_birth']);
-            $gender = sanitize($_POST['gender']);
+            $phone = isset($_POST['phone']) ? sanitize($_POST['phone']) : '';
+            $address = isset($_POST['address']) ? sanitize($_POST['address']) : '';
+            $date_of_birth = isset($_POST['date_of_birth']) ? sanitize($_POST['date_of_birth']) : '';
+            $gender = isset($_POST['gender']) ? sanitize($_POST['gender']) : '';
             $status = sanitize($_POST['status']);
             
             // Ensure username is unique
@@ -149,13 +149,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $teacher_stmt->execute();
                 } elseif ($role === 'student' && isset($_POST['student_id'])) {
                     $student_id = (int)$_POST['student_id'];
-                    $admission_date = sanitize($_POST['admission_date']);
-                    $class_id = (int)$_POST['class_id'];
-                    $section = sanitize($_POST['section']);
-                    $roll_number = sanitize($_POST['roll_number']);
+                    $admission_date = isset($_POST['admission_date']) ? sanitize($_POST['admission_date']) : '';
+                    $class_id = isset($_POST['class_id']) ? (int)$_POST['class_id'] : 0;
+                    $section = isset($_POST['section']) ? sanitize($_POST['section']) : null;
+                    $roll_number = isset($_POST['roll_number']) ? sanitize($_POST['roll_number']) : '';
                     $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
-                    $blood_group = sanitize($_POST['blood_group']);
-                    $emergency_contact = sanitize($_POST['emergency_contact']);
+                    $blood_group = isset($_POST['blood_group']) ? sanitize($_POST['blood_group']) : '';
+                    $emergency_contact = isset($_POST['emergency_contact']) ? sanitize($_POST['emergency_contact']) : '';
                     
                     $student_stmt = $conn->prepare("UPDATE students SET admission_date = ?, class_id = ?, section = ?, roll_number = ?, parent_id = ?, blood_group = ?, emergency_contact = ? WHERE student_id = ?");
                     $student_stmt->bind_param("sisssssi", $admission_date, $class_id, $section, $roll_number, $parent_id, $blood_group, $emergency_contact, $student_id);
@@ -182,6 +182,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success = 'User deleted successfully!';
             } else {
                 $error = 'Error deleting user. User may have related data.';
+            }
+        }
+        
+        // ASSIGN PARENT TO STUDENT
+        elseif ($_POST['action'] === 'assign_parent') {
+            $student_id = (int)$_POST['student_id'];
+            $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
+            
+            $stmt = $conn->prepare("UPDATE students SET parent_id = ? WHERE student_id = ?");
+            $stmt->bind_param("ii", $parent_id, $student_id);
+            
+            if ($stmt->execute()) {
+                $success = 'Parent assigned successfully!';
+            } else {
+                $error = 'Error assigning parent.';
+            }
+        }
+        
+        // BULK ASSIGN PARENTS
+        elseif ($_POST['action'] === 'bulk_assign_parents') {
+            $assigned_count = 0;
+            
+            if (isset($_POST['assignments']) && is_array($_POST['assignments'])) {
+                foreach ($_POST['assignments'] as $student_id => $parent_id) {
+                    $student_id = (int)$student_id;
+                    $parent_id = !empty($parent_id) ? (int)$parent_id : null;
+                    
+                    if ($student_id > 0) {
+                        $stmt = $conn->prepare("UPDATE students SET parent_id = ? WHERE student_id = ?");
+                        $stmt->bind_param("ii", $parent_id, $student_id);
+                        if ($stmt->execute()) {
+                            $assigned_count++;
+                        }
+                    }
+                }
+            }
+            
+            if ($assigned_count > 0) {
+                $success = "Successfully assigned parents to $assigned_count student(s)!";
+            } else {
+                $error = 'No assignments were made.';
             }
         }
     }
@@ -225,6 +266,21 @@ $classes = $conn->query("SELECT class_id, class_name, section FROM classes WHERE
 
 // Get parents for student form dropdown
 $parents = $conn->query("SELECT user_id, CONCAT(first_name, ' ', last_name) as name FROM users WHERE role = 'parent' AND status = 'active' ORDER BY first_name ASC");
+
+// Get students without parents (for assign parents feature)
+$students_without_parents = [];
+if ($active_tab === 'students') {
+    $students_no_parents_query = "SELECT s.student_id, s.admission_number, u.user_id, u.first_name, u.last_name, c.class_name
+                                   FROM students s
+                                   JOIN users u ON s.user_id = u.user_id
+                                   LEFT JOIN classes c ON s.class_id = c.class_id
+                                   WHERE (s.parent_id IS NULL OR s.parent_id = 0) AND u.status = 'active'
+                                   ORDER BY u.first_name ASC";
+    $result = $conn->query($students_no_parents_query);
+    while ($row = $result->fetch_assoc()) {
+        $students_without_parents[] = $row;
+    }
+}
 
 include '../includes/header.php';
 ?>
@@ -332,7 +388,13 @@ include '../includes/header.php';
                                             <td><?php echo htmlspecialchars($user['email']); ?></td>
                                             <td><?php echo htmlspecialchars($user['class_name'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($user['roll_number'] ?? 'N/A'); ?></td>
-                                            <td><?php echo htmlspecialchars($user['parent_name'] ?? 'N/A'); ?></td>
+                                            <td>
+                                                <?php if (!empty($user['parent_name'])): ?>
+                                                    <?php echo htmlspecialchars($user['parent_name']); ?>
+                                                <?php else: ?>
+                                                    <span class="badge badge-warning">No Parent</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><span class="badge badge-<?php echo $user['status'] === 'active' ? 'success' : 'danger'; ?>"><?php echo ucfirst($user['status']); ?></span></td>
                                         <?php elseif ($active_tab === 'teachers'): ?>
                                             <td><strong><?php echo htmlspecialchars($user['employee_id'] ?? 'N/A'); ?></strong></td>
@@ -347,7 +409,14 @@ include '../includes/header.php';
                                             <td><?php echo htmlspecialchars($user['email']); ?></td>
                                             <td><?php echo htmlspecialchars($user['username']); ?></td>
                                             <td><?php echo htmlspecialchars($user['phone'] ?? 'N/A'); ?></td>
-                                            <td><span class="badge badge-info"><?php echo $user['children_count']; ?></span></td>
+                                            <td>
+                                                <span class="badge badge-info"><?php echo $user['children_count']; ?> child(ren)</span>
+                                                <?php if ($user['children_count'] > 0): ?>
+                                                    <button class="btn btn-sm btn-info" onclick="viewParentChildren(<?php echo $user['user_id']; ?>)" title="View Children" style="margin-left: 5px;">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><span class="badge badge-<?php echo $user['status'] === 'active' ? 'success' : 'danger'; ?>"><?php echo ucfirst($user['status']); ?></span></td>
                                         <?php else: ?>
                                             <td><?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?></td>
