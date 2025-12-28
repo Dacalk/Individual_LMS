@@ -1,6 +1,5 @@
 <?php
 require_once '../config/config.php';
-require_once '../config/email.php';
 
 if (!hasRole('admin')) {
     redirect('index.php');

@@ -45,6 +45,16 @@ function formatDate($date) {
 function formatDateTime($datetime) {
     return date('d M Y h:i A', strtotime($datetime));
 }
+
+/**
+ * Generate random secure password
+ * @param int $length Password length (default 8)
+ * @return string Generated password
+ */
+function generateRandomPassword($length = 8) {
+    return bin2hex(random_bytes($length / 2));
+}
+
 ?>
 
 

@@ -1,6 +1,5 @@
 <?php
 require_once '../config/config.php';
-require_once '../config/email.php';
 
 header('Content-Type: application/json');
 
